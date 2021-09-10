@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- logs folder path /mware/logs -->
+    <property name="LogsFolderPath" value="./logs"/>
+    <!-- plain console configuration̥-->
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} -%msg%n</pattern>
+        </layout>
+    </appender>
+    <!-- Rolling file configuration-->
+
+    <appender name="authService" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LogsFolderPath}/authService/auth_service.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LogsFolderPath}/archived/authService/auth_service_%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>10MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 20GB, it will delete old archived file -->
+            <totalSizeCap>20GB</totalSizeCap>
+            <!-- 90 days to keep -->
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+    </appender>
+    <!-- LOG everything at INFO level -->
+    <root level="INFO">
+        <appender-ref ref="authService" />
+        <appender-ref ref="Console" />
+    </root>
+    <!-- subscribe and read any warns, errors generating from  com.tfs.upm.vehicle.service-->
+    <logger name="com.tfs.upm.vehicle.service" level="INFO" additivity="false">
+        <appender-ref ref="authService"/>
+        <appender-ref ref="Console"/>
+    </logger>
+
+</configuration>
