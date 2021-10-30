@@ -1,15 +1,24 @@
 package com.ajt.auth.service.authService.jwt;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.ajt.auth.service.authService.models.db.User;
 import com.ajt.auth.service.authService.services.UserDetailsImpl;
+import com.ajt.auth.service.authService.services.UserDetailsServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.*;
+import org.springframework.util.StringUtils;
+
+import javax.servlet.http.HttpServletRequest;
 
 @Component
 public class JwtUtils {
@@ -21,12 +30,38 @@ public class JwtUtils {
 	@Value("${ajt.app.jwtExpirationMs}")
 	private int jwtExpirationMs;
 
-	public String generateJwtToken(Authentication authentication) {
+	@Autowired
+	private UserDetailsServiceImpl userDetailsService;
 
-		UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
+	public String generateJwtToken(UserDetailsImpl userPrincipal) {
+		List<String> roles = userPrincipal.getAuthorities().stream().map(item -> item.getAuthority())
+				.collect(Collectors.toList());
+		return generateTokenFromUserDetails(
+				userPrincipal.getId(),
+				userPrincipal.getUsername(),
+				userPrincipal.getEmail(),
+				roles);
+	}
 
+	public String generateTokenFromUserDetails(Long userId, String userName, String email, List<String> roles) {
+		Map<String, Object> claims = new HashMap<String, Object>() {{
+			put("roles", roles);
+			put("id", userId);
+			put("email", email);
+			put("username", userName);
+		}};
 		return Jwts.builder()
-				.setSubject((userPrincipal.getUsername()))
+				.setClaims(claims)
+				.setSubject(userName)
+				.setIssuedAt(new Date())
+				.setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+				.signWith(SignatureAlgorithm.HS512, jwtSecret)
+				.compact();
+	}
+
+	public String generateTokenFromUsername(String username) {
+		return Jwts.builder()
+				.setSubject(username)
 				.setIssuedAt(new Date())
 				.setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
 				.signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -54,5 +89,24 @@ public class JwtUtils {
 		}
 
 		return false;
+	}
+
+	public Claims getClaims(final String token) {
+		try {
+			Claims body = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
+			return body;
+		} catch (Exception e) {
+			logger.error(e.getMessage());
+		}
+		return null;
+	}
+
+	public String parseJwt(HttpServletRequest request) {
+		String headerAuth = request.getHeader("Authorization");
+
+		if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
+			return headerAuth.substring(7, headerAuth.length());
+		}
+		return null;
 	}
 }
